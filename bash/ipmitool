@@ -1,0 +1,175 @@
+#!/bin/bash
+#测试要求如下：
+# 1，所有的命令都通过ipmitool命令实现
+# 2，所有命令都在没有操作系统的情况下测试
+ 
+ 
+HOST=$1
+USER=$2
+PASSWD=$3
+ 
+function getinfo()
+{
+	# 1. 获取到服务器的网络配置信息
+	echo -e "\n\n=======Networking Configurations:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD lan print
+	# 2.获取到服务器的温度信息
+	echo -e "\n\n=======Ambient Temprature:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr get "Ambient Temp"
+	# 3.获取到服务器的功率信息
+	echo -e "\n\n=======System Level:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr get "System Level"
+	
+	# 4.获取到服务器的序列号信息
+	echo -e "\n\n=======Serial Number(Fru):"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD fru
+	# 5.获取到服务器的MAC
+	echo -e "\n\n=======Mac Address(only Dell):"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD delloem mac
+	
+	# 6.获取到服务器的资产号信息
+	echo -e "\n\n=======Serial Number(Fru):"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr get "System Level"
+ 
+	# 7.获取到服务器的管理卡的时间
+	echo -e "\n\n=======Date and Time:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sel time get
+	# 8.查看管理卡配置模式
+	echo -e "\n\n=======Lan set Mode:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD delloem lan get
+	# 9.查看SOL波特率
+	echo -e "\n\n=======Volatile Bit Rate (kbps):"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sol info 1
+}
+ 
+function operation()
+{
+	# 1.服务器开机、关机、重启
+	echo -e "\n\n=======Power:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD power
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD power status
+	
+	# 2.服务器添加用户、设置密码、授予权限
+	echo -e "\n\n=======USER:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD user list 1
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD user set name 10 test1
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD user set password 10 test1pwd
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD user enable 10
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD user list 1
+	# 1-CALLBACK ,2-USER ,3-OPERATOR ,4-ADMNISTRATOR
+	echo -e "\n\n=======User privilage:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD user priv 10 4 1
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD user list 1
+	
+	# 3.管理卡IP配置模式转换（DHCP/静态IP）
+	echo -e "\n\n=======OOB IP Mode:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD lan set 1 ipsrc 
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD lan set 1 ipsrc static
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD lan print
+	
+	# 4.管理卡修改IP地址
+	echo -e "\n\n=======Set IP:"
+	read -p "modify oob ip, please use the current network : " oobip
+	read -p "modify oob netmask : " netmask
+	read -p "modify oob gateway : " oobgw
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD lan set 1 ipaddr $oobip
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD lan set 1 netmask $netmask
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD lan set 1 defgw ipaddr $oobgw
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD lan print
+	
+	# 5.管理卡配置模式转换（独立/共享） 仅dell
+	echo -e "\n\n=======Lan Mode:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD delloem lan
+	#ipmitool -I lan -H HOST−UUSER -P $PASSWD delloem lan set dedicated
+	
+	# 6.设置SOL波特率
+	echo -e "\n\n=======Sol volatile-bit-rate:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sol set non-volatile-bit-rate 115.2 1
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sol info 1
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sol set non-volatile-bit-rate 57.6 1
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sol info 1
+	
+	# 7.SOL模式开启、关闭
+	echo -e "\n\n=======Sol enable and disable:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sol set enabled true 1
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sol info 1
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sol set enabled false 1
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sol info 1
+}
+ 
+function extrainfo()
+{
+	echo -e "\n\n\n=======Extra infomation:"
+	# cpu信息
+	echo -e "\n\n=======cpu型号:"
+	echo -e "\n\n=======cpu物理个数:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr elist | grep 'Status' #华为提供，貌似不准确
+	echo -e "\n\n=======cpu当前频率:"
+	
+	#内存信息
+	echo -e "\n\n=======内存型号:"
+	echo -e "\n\n=======内存数量:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr elist | grep 'DIMM'
+	
+	#硬盘信息
+	echo -e "\n\n=======硬盘品牌:"
+	echo -e "\n\n=======硬盘SN:"
+	echo -e "\n\n=======硬盘型号:"
+	
+	#电力
+	echo -e "\n\n=======服务器当前整体功耗:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr get "Pwr"
+	echo -e "\n\n=======服务器交流实际供电电压:"     #不支持或未找到
+	echo -e "\n\n=======服务器直流3.3V,5V和12V实际供电电压:"
+	
+	#风扇
+	echo -e "\n\n=======风扇数量和转速:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr get "Fan"
+	
+	#温度
+	echo -e "\n\n=======服务器进风口温度:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr get "Inlet"
+	echo -e "\n\n=======服务器出风口温度:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr get "Exhaust Temp"
+	echo -e "\n\n=======CPU当前温度:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sdr get "Temp"
+	
+	#状态：基于收集信息异常状态的记录及展示
+	echo -e "\n\n=======基于收集信息异常状态的记录及展示:"
+	
+	#网络：Mac地址
+	echo -e "\n\n=======远程管理卡以及主板上所有网口的MAC地址:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD lan print |grep "MAC Address"
+	
+	#时间：收集管理卡当前时钟信息，以“年月日时分秒”格式显示。
+	echo -e "\n\n=======收集管理卡当前时钟信息，以“年月日时分秒”格式显示。:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sel time get
+	
+	#事件：异常事件、操作事件、登录事件记录
+	echo -e "\n\n=======异常事件、操作事件、登录事件记录:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sel list
+	
+}
+ 
+function extraop()
+{
+	#通过网络，命令行模式完成以下功能：
+ 
+	#1， 指定特定端口PXE启动
+	echo -e "\n\n=======指定特定端口PXE启动:"
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD chassis bootdev pxe   #不能指定特定端口,端口指定可借助racadm等工具实现，网卡的pxe功能需要在bios中开启
+	
+	#2， 可通过管理卡启动KVM（无需登录web界面），并有相关的权限区分（可看，可操作等多种权限）
+	echo -e "\n\n=======可通过管理卡启动KVM（无需登录web界面），并有相关的权限区分（可看，可操作等多种权限）:" #Need config SSO， 虚拟控制台或者VNC免登陆方式
+	
+	#可以设置管理卡的时钟、使用“年月日时分秒”格式。
+	echo -e "\n\n=======可以设置管理卡的时钟、使用 年月日时分秒 格式。" #dell反馈管理卡没有时间设置，只有BIOS时间和NTP
+	ipmitool -I lan -H $HOST -U $USER -P $PASSWD sel time set
+}
+ 
+ 
+echo >$HOST-report.txt
+getinfo 2>&1 |tee -a $HOST-report.txt
+operation 2>&1 |tee -a $HOST-report.txt
+extrainfo 2>&1 |tee -a $HOST-report.txt
+extraop 2>&1 | tee -a $HOST-report.txt
