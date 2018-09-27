@@ -1,0 +1,21 @@
+#!/bin/bash
+j=0
+for i in `ls -l /dev/disk/by-uuid|grep -v 'sdy'|awk 'NR>=2{print $9}'`  #24块jbod 数据盘 2块raid1系统盘  系统盘设备号为sdy
+do
+    grep "$i" /etc/fstab >/dev/null 2>&1
+    if [ $? -ne 0 ];then
+        if [ $i"x" != "x" ];then
+            j=`expr $j + 1`
+            if [ $j -lt 10 ];then
+                b="0"$j
+            else
+                b=$j
+            fi
+          cat >>/etc/fstab<<EOF
+UUID=$i  /data$b              xfs    defaults        0 0
+EOF
+        fi
+    fi
+done
+mount -a
+df -lh
