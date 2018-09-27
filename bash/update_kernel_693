@@ -1,0 +1,13 @@
+#!/bin/bash
+cd /etc/yum.repos.d/ && wget http://192.168.55.168/centos7-4.repo
+yum clean all
+yum --disablerepo=* --enablerepo=centos7.4 list kernel-tools-libs kernel-headers kernel-tools python-perf kernel
+chattr  -ai /boot/grub2/grub.cfg
+yum --disablerepo=* --enablerepo=centos7.4 install -y kernel-tools-libs kernel-headers kernel-tools python-perf kernel
+#rpm -e kernel-3.10.0-327.el7.x86_64
+
+rpm -aq | grep kernel
+
+grub2-mkconfig -o /boot/grub2/grub.cfg
+
+chattr +ai /boot/grub2/grub.cfg
