@@ -1,0 +1,13 @@
+#!/bin/bash
+for  disk  in `ls  /dev/sd*  |grep  -v  sdy`;
+    do
+    mkfs.ext4   -T largefile    $disk  <<EOF
+y
+EOF
+
+     if [ $? ne  0 ];then
+       echo  "$disk 格式化失败!"
+      else
+       echo  "$disk 格式化完成!"
+     fi
+     done
