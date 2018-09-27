@@ -1,0 +1,17 @@
+#!/bin/bash
+function check_megacli () {
+    if which MegaCli64  >/dev/null 2>&1; then 
+     echo 'exists MegaCli64' 
+    else 
+        yum install -y MegaCli  --nogpgcheck && ln -s /opt/MegaRAID/MegaCli/MegaCli64 /bin/MegaCli64  &&  ln -s /opt/MegaRAID/MegaCli/MegaCli64 /sbin/MegaCli64
+        if [  $? ne  0  ]; then
+            echo "MegaCli64 安装成功！"
+        else   
+    
+            echo "MegaCli64 安装失败，请登录检查！"
+        fi
+    fi
+
+}
+
+check_megacli 
