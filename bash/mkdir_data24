@@ -1,0 +1,17 @@
+#!/bin/bash
+#创建24个目录
+for  i  in  `seq 1 24`;
+do
+ 	if [ $i -lt  10 ];then
+    	m='0'$i
+     	echo  $m
+	else
+	 	m=$i
+	 	echo $m
+	fi
+	if [ ! -d /data$m ];then
+            mkdir  /data$m
+    else
+        echo "/data$m is  exists!"	
+	fi
+done
