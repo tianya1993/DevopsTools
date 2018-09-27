@@ -1,0 +1,19 @@
+#!/bin/bash
+#olduuid=`blkid |grep $1 |awk  '{ print $2 }'|sed  's/\"//g'`
+olduuid=`cat  /etc/fstab  |grep  $1  |awk  '{print  $1 }'`   #故障磁盘目录
+newuuid=`blkid |grep $2 |awk  '{ print $2 }'|sed  's/\"//g'` #故障磁盘设备号
+
+sed    "s/$olduuid/$newuuid/g"  /etc/fstab
+
+if [  $? ne  0  ]; then
+        echo "fstab文件更新成功！"
+      systemctl daemon-reload  && mount  -a
+      if [  $? ne  0  ];  then 
+        echo  "新硬盘挂载成功请检查!"
+      else  
+        echo  $?
+      fi
+else   
+    
+    echo "fstab文件更新失败！"
+fi
