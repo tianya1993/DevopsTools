@@ -1,0 +1,159 @@
+# coding=utf-8
+import copy
+import base64
+import hashlib
+import  requests
+
+UCLOUD_IP_HZ = "api.ucloud.cn"
+UCLOUD_PRIVATE_KEY = "************"
+UCLOUD_PUBLIC_KEY = "*************"
+
+
+class UcloudApiClient():
+    def __init__(self, *args, **kwargs):
+        self.url = 'https://' + UCLOUD_IP_HZ+"/"
+
+    def signature(self, params):
+        items = params.items()
+        # 请求参数串
+        items = sorted(items)
+        # 将参数串排序
+
+        params_data = b""
+        for key, value in items:
+            if isinstance(value, bytes):
+                params_data += key.encode('utf-8') + value
+            elif isinstance(value, int):
+                params_data += key.encode('utf-8') + str(value).encode('utf-8')
+            else:
+                params_data += key.encode('utf-8') + value.encode('utf-8')
+        params_data = params_data + UCLOUD_PRIVATE_KEY.encode('utf-8')
+
+        sign = hashlib.sha1()
+        sign.update(params_data)
+        signature = sign.hexdigest()
+
+        return signature
+
+    def base64_encode(self, password):
+        lens = len(password)
+        lenx = lens - (lens % 4 if lens % 4 else 4)
+        return base64.b64encode(password[: lenx].encode('utf-8'))
+
+
+    def get_instance(self,params):
+        params = copy.deepcopy(params)
+        params['PublicKey'] = UCLOUD_PUBLIC_KEY
+        params['Action'] = 'DescribeUHostInstance'
+        params["ProjectId"]="org-26545"
+        params['Signature'] = self.signature(params)
+        # print("获取ucloud主机信息参数=={}".format(params))
+
+        header = {"Content-Type": "application/json"}
+        response = requests.get(self.url, params=params)
+        disklist = []
+        DiskSet = response.json()["UHostSet"][0]["DiskSet"]
+        for index in range(len(DiskSet)):
+            # 非系统盘  容量为目前的容量 G
+            if  DiskSet[index]['IsBoot']=="False" and DiskSet[index]['Size']== params["Size"] :
+                # print(DiskSet[index]["DiskId"],DiskSet[index]['Size'])
+                disklist.append(DiskSet[index]["DiskId"])
+            else:
+                pass
+                # print("盘ID为：%s无需扩容" %(DiskSet[index]["DiskId"]))
+        return  disklist
+
+
+
+
+    def resize_host_disk(self, params):
+        params = copy.deepcopy(params)
+        params['PublicKey'] = UCLOUD_PUBLIC_KEY
+        params['Action'] = 'ResizeAttachedDisk'
+        params["ProjectId"] = "org-26545"
+        params['Signature'] = self.signature(params)
+        header = {"Content-Type": "application/json"}
+        response = requests.get(self.url, params=params)
+        print(response.json())
+
+
+
+
+    def create_instance(self, params):
+        params = copy.deepcopy(params)
+        params['PublicKey'] = UCLOUD_PUBLIC_KEY
+        params['Action'] = "CreateUHostInstance"
+        params["Region"] = "idn-jakarta"
+        params["Zone"] = "idn-jakarta-01"
+        params["ProjectId"] = "org-26545"
+        params["MinimalCPUPlatform"]="auto"
+        params["MachineType"] = "N"
+        params["ImageID"] = "uimage-zhdooo"
+        params["CPU"] = 2
+        params["Memory"] = 4096
+        params["Disks.0.IsBoot"]=True
+        params["Disks.0.Type"]="CLOUD_NORMAL"
+        params["Disks.0.Size"] =20
+        params["Password"]="UGFzc3dvcmQx"
+        params["LoginMode"] = "Password"
+        params['Signature'] = self.signature(params)
+        print("获取ucloud主机信息参数=={}".format(params))
+        response = requests.post(self.url, params=params)
+        print(response.url)
+        print(response.json())
+
+    def get_ip_count(self,params):
+        params = copy.deepcopy(params)
+        params['PublicKey'] = UCLOUD_PUBLIC_KEY
+        params['Action'] = 'DescribeEIP'
+        params["ProjectId"] = "org-26545"
+        params['Signature'] = self.signature(params)
+        response = requests.get(self.url, params=params)
+        ipcount=response.json()["TotalCount"]
+        return  ipcount
+
+
+
+
+
+
+
+
+
+
+
+
+
+#serverlist=['uhost-dx41r5za','uhost-rwfh1rtm','uhost-0yyhml0f','uhost-y0xrcrz4','uhost-3gc4knlj','uhost-1msh2tdy','uhost-ayk0xmmq','uhost-cuooqtpx','uhost-rhjcqw5m','uhost-tgwepn05']
+serverlist=['uhost-rhjcqw5m','uhost-cuooqtpx']
+
+
+#serverlist=["uhost-1msh2tdy"]
+def main():
+
+    client = UcloudApiClient()
+    for host  in  serverlist:
+        address=dict()
+        address["Region"]="idn-jakarta"
+        address["UHostIds.0"] = host
+        address["Size"]=600  #获取原来的盘的容量 根据该容量和是否系统盘筛选需要扩容的盘ID
+        disklist = client.get_instance(address)
+        if  len(disklist) >0:
+            print("主机：%s,需要扩大的列表%s" %(host,disklist))
+            for  diskid  in disklist:
+                host2 = dict()
+                host2["Region"] = "idn-jakarta"
+                host2["Zone"] = "idn-jakarta-01"
+                host2["UHostId"] = host
+                host2["DiskId"] = diskid
+                host2["DiskSpace"] = 800  #将要扩容的容量
+                client2 =UcloudApiClient()
+                client2.resize_host_disk(host2)
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+
