@@ -1,0 +1,105 @@
+#! /usr/bin/env python
+
+
+import requests
+import  json
+
+headers = {
+  'Content-Type': 'application/json'
+}
+
+zstackip="ip:8080"
+
+
+def  GetSessionId() :
+    #获取登录的session
+    url = "http://"+ zstackip + "/zstack/api"
+    data = """{"org.zstack.header.identity.APILogInByAccountMsg":
+            {"password": "5d8d2b45bf632fbeca80e2272b5e7964b3b07bb76c2e4f220feaafe62f7f",
+           "accountName": "admin"
+             }}"""
+    response = requests.post(url=url, headers=headers, data=data)
+    # print(response.text)
+    result = response.json()["result"]
+
+    b = json.loads(result)
+
+    uuid = b['org.zstack.header.identity.APILogInReply']['inventory']['uuid']
+    return   uuid
+
+
+def  StartVm(serverid ):
+    url2="http://" + zstackip + "/zstack/v1/vm-instances/" + serverid +"/actions"
+    uuid2 = GetSessionId()
+
+    headers2 = {
+        'Authorization': "OAuth" + uuid2,
+        'Content-Type': 'application/json'
+    }
+    data2 = """{'startVmInstance':{}} """
+
+    response2 = requests.put(url=url2, data=data2, headers=headers2)
+    print(response2.text)
+
+serverid=[]
+
+
+def SearchHost(ip) :
+
+    url ="http://" + zstackip + "/zstack/v1/vm-instances" + "?q=vmNics.ip=" + ip
+    uuid2 = GetSessionId()
+
+    headers2 = {
+        'Authorization': "OAuth" + uuid2,
+        'Content-Type': 'application/json'
+    }
+
+    reposetes =requests.get(url=url,headers=headers2)
+
+
+    if  len(reposetes.json()["inventories"])  > 0 :
+        serveuuid = reposetes.json()["inventories"][0]["uuid"]
+        if serveuuid != "":
+            return  serveuuid
+        else:
+            print("查询Serveruuid失败")
+
+
+
+# serverip=["10.57.17.221","10.128.231.36","10.128.92.68","10.128.78.190"]
+
+if __name__ == '__main__':
+
+    with open('hostip.txt')  as  ipfile:
+        for i in  ipfile.readlines():
+
+            uuid = SearchHost(i)
+            # print(uuid)
+            serverid.append(uuid)
+        for key in serverid:
+            # print(key)
+            if key != None :
+                StartVm(key)
+            else:
+                print("查询主机uuid失败，不能启动")
+
+    # uuid=SearchHost("10.57.22.90")
+    # print(uuid)
+    # StartVm("2f58a77c7ca34b38a796950e1e98cea3")
+
+
+
+
+
+
+
+
+
+
+
+
+# response2 =requests.get(url2,headers=headers2)
+
+
+
+
